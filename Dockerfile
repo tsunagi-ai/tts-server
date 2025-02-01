@@ -18,3 +18,4 @@ CMD ["python3", "-u", "rp_handler.py"]
 # 0.0.1 - Initial version, with basic functionality.
 # 0.0.2 - Update the model downloader to download open_jtask related files. Done for cold start inference time improvement.
 # 0.0.3 - Refactor the code to make it more modular and readable.
+# 0.0.4 - Mikke version.
