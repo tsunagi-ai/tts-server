@@ -9,13 +9,17 @@ import model_config
 
 # Encoding related
 from io import BytesIO
-from scipy.io import wavfile
+from pydub import AudioSegment
 import base64
 
 # Runpod related
 import runpod
 import datetime
 import inspect
+
+# --------
+# Utility functions
+# --------
 
 # Simple logging function similar to runpod's logger
 def log(message, level="INFO"):
@@ -30,6 +34,42 @@ def log(message, level="INFO"):
     lineno = caller.lineno
 
     print(f"{now_str} | HANDLER-{level} | {filename}:{lineno} | {message}")
+
+
+# Audio format utility
+def convert_audio(audio, sr, format):
+    audio_io = BytesIO()
+    
+    # Create an AudioSegment from raw data
+    audio_segment = AudioSegment(
+        audio.tobytes(), 
+        frame_rate=sr, 
+        sample_width=audio.dtype.itemsize, 
+        channels=1  # Change this if stereo
+    )
+    
+    if format == "wav":
+        audio_segment.export(audio_io, format="wav")
+    elif format == "mp3":
+        audio_segment.export(audio_io, format="mp3", bitrate="192k")
+    elif format == "ogg_opus":
+        audio_segment.export(audio_io, format="ogg", codec="libopus", bitrate="192k")
+    else:
+        raise ValueError("Unsupported format")
+    
+    audio_io.seek(0)
+    
+    # Read raw bytes from buffer
+    audio_bytes = audio_io.read()
+    
+    # Encode to Base64
+    audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+    
+    return audio_base64
+
+# --------
+# Main handler
+# --------
 
 # Load BERT models
 bert_models.load_model(Languages.JP, model_config.bert_model)
@@ -58,13 +98,15 @@ for model_name, model_paths in model_holder.model_files_dict.items():
     loaded_models.append(model)
 log(f"Model loading complete: {len(loaded_models)}")
 
-# Runpod handler
+
+# Main runpod handler
 def handler(event):
     data = event["input"]
     text = data.get("text")
     model_id = data.get("model_id", 0)
     speaker_id = data.get("speaker_id", 0)
     language = data.get("language", "JP")
+    format = data.get("format", "wav") # wav, mp3, ogg_opus
 
     log(f"Received request with text: {text}, model_id: {model_id}, speaker_id: {speaker_id}, language: {language}")
 
@@ -81,24 +123,15 @@ def handler(event):
             language=language,
             speaker_id=speaker_id,
         )
-        log(f"Audio synthesized successfully with sample rate: {sr} and audio length: {len(audio)}")
+        audio_base64 = convert_audio(audio, sr, format)        
+        log(f"Successful synthesis with audio length of {len(audio_base64)}")
 
     except Exception as e:
         error_message = f"Error during synthesis: {e}"
         log(f"Error: {error_message}")
         return {"error": error_message}
-
-    # Convert audio to wav format
-    wav_io = BytesIO()
-    wavfile.write(wav_io, sr, audio)
-    wav_io.seek(0)
-
-    # Read raw bytes from buffer
-    wav_bytes = wav_io.read()
-    # Encode to Base64
-    wav_base64 = base64.b64encode(wav_bytes).decode('utf-8')
-
-    return {"wav_base64": wav_base64}
+    
+    return {"audio_base64": audio_base64}
 
 if __name__ == "__main__":
     runpod.serverless.start({'handler': handler})
