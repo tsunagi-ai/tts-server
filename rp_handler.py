@@ -37,7 +37,9 @@ def log(message, level="INFO"):
 
 
 # Audio format utility
-def convert_audio(audio, sr, format):
+# format: wav, mp3, ogg_opus
+# bitrate: 192k, 128k, 64k, ...
+def convert_audio(audio, sr, format, bitrate):
     audio_io = BytesIO()
     
     # Create an AudioSegment from raw data
@@ -51,9 +53,9 @@ def convert_audio(audio, sr, format):
     if format == "wav":
         audio_segment.export(audio_io, format="wav")
     elif format == "mp3":
-        audio_segment.export(audio_io, format="mp3", bitrate="192k")
+        audio_segment.export(audio_io, format="mp3", bitrate=bitrate)
     elif format == "ogg_opus":
-        audio_segment.export(audio_io, format="ogg", codec="libopus", bitrate="192k")
+        audio_segment.export(audio_io, format="ogg", codec="libopus", bitrate=bitrate)
     else:
         raise ValueError("Unsupported format")
     
@@ -107,6 +109,7 @@ def handler(event):
     speaker_id = data.get("speaker_id", 0)
     language = data.get("language", "JP")
     format = data.get("format", "wav") # wav, mp3, ogg_opus
+    bitrate = data.get("bitrate", "192k") # 192k, 128k, 64k, ...
 
     log(f"Received request with text: {text}, model_id: {model_id}, speaker_id: {speaker_id}, language: {language}")
 
@@ -123,7 +126,7 @@ def handler(event):
             language=language,
             speaker_id=speaker_id,
         )
-        audio_base64 = convert_audio(audio, sr, format)        
+        audio_base64 = convert_audio(audio, sr, format, bitrate)        
         log(f"Successful synthesis with audio length of {len(audio_base64)}")
 
     except Exception as e:

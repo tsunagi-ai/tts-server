@@ -6,11 +6,11 @@ WORKDIR /
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY model_config.py /
 COPY rp_handler.py /
 COPY model_cacher.py /
-
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Loading the model parameters into image
 RUN python model_cacher.py
